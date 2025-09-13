@@ -99,6 +99,37 @@
             0%, 50% { opacity: 1; }
             51%, 100% { opacity: 0; }
         }
+        
+        .audio-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #00ff00;
+            font-size: 0.7rem;
+            font-family: 'Courier New', monospace;
+            z-index: 20;
+        }
+        
+        .audio-controls button {
+            background: transparent;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 5px 10px;
+            margin: 2px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .audio-controls button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .audio-controls button.active {
+            background: #00ff00;
+            color: #000;
+        }
     </style>
 </head>
 <body>
@@ -125,9 +156,170 @@
             <div id="currentDate"></div>
             <div>root@hackers:~$ <span class="cursor">█</span></div>
         </div>
+        
+        <div class="audio-controls">
+            <div>MIDI AUDIO SYSTEM</div>
+            <button id="playBtn">PLAY</button>
+            <button id="stopBtn">STOP</button>
+            <button id="volBtn">VOL: 50%</button>
+        </div>
     </div>
 
     <script>
+        // MIDI Synthesizer for Cyberpunk Soundtrack
+        class CyberpunkMIDI {
+            constructor() {
+                this.audioContext = null;
+                this.isPlaying = false;
+                this.volume = 0.5;
+                this.tempo = 120; // BPM
+                this.currentBeat = 0;
+                this.patterns = this.createPatterns();
+                this.oscillators = [];
+                this.gainNode = null;
+                this.masterGain = null;
+            }
+            
+            async init() {
+                try {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.masterGain = this.audioContext.createGain();
+                    this.masterGain.connect(this.audioContext.destination);
+                    this.masterGain.gain.value = this.volume;
+                    
+                    // Create synthesizer patterns inspired by Hackers soundtrack
+                    this.createCyberpunkPatterns();
+                    
+                    return true;
+                } catch (error) {
+                    console.log('Audio not available:', error);
+                    return false;
+                }
+            }
+            
+            createCyberpunkPatterns() {
+                // Inspired by Orbital, Underworld, and 90s electronic music
+                this.patterns = {
+                    bass: [36, 0, 36, 0, 36, 0, 36, 0, 36, 0, 36, 0, 36, 0, 36, 0], // Deep bass line
+                    lead: [60, 0, 64, 0, 67, 0, 72, 0, 0, 0, 0, 0, 60, 64, 67, 72], // Melodic lead
+                    pad: [48, 51, 55, 58, 60, 63, 67, 70, 72, 75, 79, 82, 84, 87, 91, 94], // Ambient pad
+                    drums: [38, 0, 42, 0, 38, 42, 0, 42, 38, 0, 42, 0, 38, 42, 38, 42], // Electronic drums
+                    arp: [72, 79, 84, 91, 84, 79, 72, 67, 72, 79, 84, 91, 96, 91, 84, 79] // Arpeggiated sequence
+                };
+            }
+            
+            play() {
+                if (!this.audioContext || this.isPlaying) return;
+                
+                this.isPlaying = true;
+                this.currentBeat = 0;
+                this.startSequencer();
+            }
+            
+            stop() {
+                this.isPlaying = false;
+                this.oscillators.forEach(osc => {
+                    if (osc) osc.stop();
+                });
+                this.oscillators = [];
+            }
+            
+            startSequencer() {
+                if (!this.isPlaying) return;
+                
+                const beatDuration = (60 / this.tempo) * 4; // 16th note duration
+                
+                // Play all patterns
+                Object.keys(this.patterns).forEach((patternName, index) => {
+                    const note = this.patterns[patternName][this.currentBeat % this.patterns[patternName].length];
+                    if (note > 0) {
+                        this.playNote(note, patternName, index * 0.1);
+                    }
+                });
+                
+                this.currentBeat++;
+                setTimeout(() => this.startSequencer(), beatDuration * 1000);
+            }
+            
+            playNote(midiNote, instrument, delay = 0) {
+                if (!this.audioContext) return;
+                
+                const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                
+                // Different waveforms for different instruments
+                let waveform = 'sine';
+                let attack = 0.01;
+                let decay = 0.3;
+                let sustain = 0.7;
+                let release = 0.5;
+                
+                switch (instrument) {
+                    case 'bass':
+                        waveform = 'sawtooth';
+                        attack = 0.1;
+                        decay = 0.2;
+                        sustain = 0.8;
+                        release = 0.3;
+                        break;
+                    case 'lead':
+                        waveform = 'square';
+                        attack = 0.05;
+                        decay = 0.1;
+                        sustain = 0.9;
+                        release = 0.2;
+                        break;
+                    case 'pad':
+                        waveform = 'triangle';
+                        attack = 0.5;
+                        decay = 0.3;
+                        sustain = 0.8;
+                        release = 1.0;
+                        break;
+                    case 'drums':
+                        waveform = 'square';
+                        attack = 0.001;
+                        decay = 0.1;
+                        sustain = 0.0;
+                        release = 0.1;
+                        break;
+                    case 'arp':
+                        waveform = 'sine';
+                        attack = 0.01;
+                        decay = 0.1;
+                        sustain = 0.7;
+                        release = 0.2;
+                        break;
+                }
+                
+                oscillator.type = waveform;
+                oscillator.frequency.value = frequency;
+                
+                // ADSR envelope
+                const now = this.audioContext.currentTime + delay;
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(sustain, now + attack);
+                gainNode.gain.linearRampToValueAtTime(sustain * 0.7, now + attack + decay);
+                gainNode.gain.linearRampToValueAtTime(0, now + attack + decay + release);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(this.masterGain);
+                
+                oscillator.start(now);
+                oscillator.stop(now + attack + decay + release);
+                
+                this.oscillators.push(oscillator);
+            }
+            
+            setVolume(volume) {
+                this.volume = Math.max(0, Math.min(1, volume));
+                if (this.masterGain) {
+                    this.masterGain.gain.value = this.volume;
+                }
+            }
+        }
+
         class HackersTribute {
             constructor() {
                 this.canvas = document.getElementById('canvas');
@@ -137,11 +329,13 @@
                 this.wireframe = [];
                 this.plasma = [];
                 this.matrix = [];
+                this.midi = new CyberpunkMIDI();
                 
                 this.init();
                 this.createParticles();
                 this.createWireframe();
                 this.createMatrix();
+                this.setupAudioControls();
                 this.animate();
                 
                 // Update date
@@ -155,6 +349,44 @@
                 // Add some interactive elements
                 this.canvas.addEventListener('click', () => this.explosion());
                 this.canvas.addEventListener('mousemove', (e) => this.mouseMove(e));
+                
+                // Initialize MIDI
+                this.midi.init();
+            }
+            
+            setupAudioControls() {
+                const playBtn = document.getElementById('playBtn');
+                const stopBtn = document.getElementById('stopBtn');
+                const volBtn = document.getElementById('volBtn');
+                
+                playBtn.addEventListener('click', () => {
+                    if (this.midi.isPlaying) {
+                        this.midi.stop();
+                        playBtn.textContent = 'PLAY';
+                        playBtn.classList.remove('active');
+                    } else {
+                        this.midi.play();
+                        playBtn.textContent = 'PAUSE';
+                        playBtn.classList.add('active');
+                    }
+                });
+                
+                stopBtn.addEventListener('click', () => {
+                    this.midi.stop();
+                    playBtn.textContent = 'PLAY';
+                    playBtn.classList.remove('active');
+                });
+                
+                volBtn.addEventListener('click', () => {
+                    const volumes = [0, 0.25, 0.5, 0.75, 1.0];
+                    const currentVol = this.midi.volume;
+                    const currentIndex = volumes.indexOf(currentVol);
+                    const nextIndex = (currentIndex + 1) % volumes.length;
+                    const newVol = volumes[nextIndex];
+                    
+                    this.midi.setVolume(newVol);
+                    volBtn.textContent = `VOL: ${Math.round(newVol * 100)}%`;
+                });
             }
             
             resize() {
@@ -241,7 +473,7 @@
                 }
             }
             
-            drawPlasma() {
+            drawPlasma(musicIntensity = 1.0) {
                 const imageData = this.ctx.createImageData(this.canvas.width, this.canvas.height);
                 const data = imageData.data;
                 
@@ -249,20 +481,21 @@
                     for (let x = 0; x < this.canvas.width; x += 2) {
                         const index = (y * this.canvas.width + x) * 4;
                         
-                        const value1 = Math.sin((x * 0.01) + this.time * 0.01);
-                        const value2 = Math.sin((y * 0.01) + this.time * 0.01);
-                        const value3 = Math.sin(((x + y) * 0.01) + this.time * 0.01);
-                        const value4 = Math.sin((Math.sqrt(x * x + y * y) * 0.01) + this.time * 0.01);
+                        const timeMultiplier = 0.01 * musicIntensity;
+                        const value1 = Math.sin((x * 0.01) + this.time * timeMultiplier);
+                        const value2 = Math.sin((y * 0.01) + this.time * timeMultiplier);
+                        const value3 = Math.sin(((x + y) * 0.01) + this.time * timeMultiplier);
+                        const value4 = Math.sin((Math.sqrt(x * x + y * y) * 0.01) + this.time * timeMultiplier);
                         
                         const value = (value1 + value2 + value3 + value4) / 4;
                         
-                        const r = Math.floor((Math.sin(value * Math.PI) + 1) * 127);
-                        const g = Math.floor((Math.sin(value * Math.PI + 2) + 1) * 127);
-                        const b = Math.floor((Math.sin(value * Math.PI + 4) + 1) * 127);
+                        const r = Math.floor((Math.sin(value * Math.PI) + 1) * 127 * musicIntensity);
+                        const g = Math.floor((Math.sin(value * Math.PI + 2) + 1) * 127 * musicIntensity);
+                        const b = Math.floor((Math.sin(value * Math.PI + 4) + 1) * 127 * musicIntensity);
                         
-                        data[index] = r;
-                        data[index + 1] = g;
-                        data[index + 2] = b;
+                        data[index] = Math.min(255, r);
+                        data[index + 1] = Math.min(255, g);
+                        data[index + 2] = Math.min(255, b);
                         data[index + 3] = 255;
                     }
                 }
@@ -270,13 +503,15 @@
                 this.ctx.putImageData(imageData, 0, 0);
             }
             
-            drawWireframe() {
+            drawWireframe(beatSync = 0) {
                 const centerX = this.canvas.width / 2;
                 const centerY = this.canvas.height / 2;
-                const rotation = this.time * 0.01;
+                const rotation = this.time * 0.01 + (beatSync * 0.1);
                 
-                this.ctx.strokeStyle = '#00ff00';
-                this.ctx.lineWidth = 1;
+                // Pulsing effect synchronized with beat
+                const pulseIntensity = Math.sin(beatSync * Math.PI / 8) * 0.5 + 0.5;
+                this.ctx.strokeStyle = `rgba(0, 255, 0, ${0.8 + pulseIntensity * 0.2})`;
+                this.ctx.lineWidth = 1 + pulseIntensity;
                 this.ctx.beginPath();
                 
                 const vertices = this.wireframe.vertices.map(vertex => {
@@ -346,22 +581,23 @@
                 this.ctx.globalAlpha = 1;
             }
             
-            drawTunnel() {
+            drawTunnel(musicIntensity = 1.0) {
                 const centerX = this.canvas.width / 2;
                 const centerY = this.canvas.height / 2;
                 const maxRadius = Math.max(this.canvas.width, this.canvas.height) / 2;
                 
                 for (let i = 0; i < 50; i++) {
                     const radius = (i / 50) * maxRadius;
-                    const angle = (this.time * 0.02) + (i * 0.1);
+                    const angle = (this.time * 0.02 * musicIntensity) + (i * 0.1);
                     
                     const x = centerX + Math.cos(angle) * radius;
                     const y = centerY + Math.sin(angle) * radius;
                     
-                    this.ctx.strokeStyle = `rgba(0, 255, 0, ${1 - i / 50})`;
-                    this.ctx.lineWidth = 2;
+                    const alpha = (1 - i / 50) * musicIntensity;
+                    this.ctx.strokeStyle = `rgba(0, 255, 0, ${alpha})`;
+                    this.ctx.lineWidth = 2 * musicIntensity;
                     this.ctx.beginPath();
-                    this.ctx.arc(x, y, 2, 0, Math.PI * 2);
+                    this.ctx.arc(x, y, 2 * musicIntensity, 0, Math.PI * 2);
                     this.ctx.stroke();
                 }
             }
@@ -369,19 +605,25 @@
             animate() {
                 this.time++;
                 
+                // Sync visual intensity with music
+                const musicIntensity = this.midi.isPlaying ? 1.5 : 1.0;
+                const beatSync = this.midi.currentBeat % 16;
+                
                 // Clear canvas with fade effect
-                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                this.ctx.fillStyle = `rgba(0, 0, 0, ${0.1 / musicIntensity})`;
                 this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                 
-                // Draw effects in layers
-                this.drawPlasma();
-                this.drawWireframe();
-                this.drawTunnel();
+                // Draw effects in layers with music sync
+                this.drawPlasma(musicIntensity);
+                this.drawWireframe(beatSync);
+                this.drawTunnel(musicIntensity);
                 this.drawParticles();
                 this.drawMatrix();
                 
-                // Add some glitch effects occasionally
-                if (Math.random() < 0.02) {
+                // Enhanced glitch effects when music is playing
+                if (this.midi.isPlaying && Math.random() < 0.05) {
+                    this.glitchEffect();
+                } else if (!this.midi.isPlaying && Math.random() < 0.02) {
                     this.glitchEffect();
                 }
                 
