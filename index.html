@@ -108,6 +108,7 @@
             font-size: 0.7rem;
             font-family: 'Courier New', monospace;
             z-index: 20;
+            pointer-events: auto;
         }
         
         .audio-controls button {
@@ -159,9 +160,11 @@
         
         <div class="audio-controls">
             <div>MIDI AUDIO SYSTEM</div>
+            <div id="audioStatus">CLICK TO ENABLE AUDIO</div>
             <button id="playBtn">PLAY</button>
             <button id="stopBtn">STOP</button>
             <button id="volBtn">VOL: 50%</button>
+            <button id="patternBtn">PATTERN: 1</button>
         </div>
     </div>
 
@@ -172,17 +175,26 @@
                 this.audioContext = null;
                 this.isPlaying = false;
                 this.volume = 0.5;
-                this.tempo = 120; // BPM
+                this.tempo = 140; // BPM - Classic 90s electronic tempo
                 this.currentBeat = 0;
-                this.patterns = this.createPatterns();
+                this.patterns = {};
+                this.additionalPatterns = {};
                 this.oscillators = [];
                 this.gainNode = null;
                 this.masterGain = null;
+                this.patternSet = 0; // 0 = main patterns, 1 = additional patterns
             }
             
             async init() {
                 try {
-                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    // Use the correct AudioContext constructor for all browsers
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioContext) {
+                        console.log('Web Audio API not supported');
+                        return false;
+                    }
+                    
+                    this.audioContext = new AudioContext();
                     this.masterGain = this.audioContext.createGain();
                     this.masterGain.connect(this.audioContext.destination);
                     this.masterGain.gain.value = this.volume;
@@ -190,6 +202,7 @@
                     // Create synthesizer patterns inspired by Hackers soundtrack
                     this.createCyberpunkPatterns();
                     
+                    console.log('Audio context initialized successfully, state:', this.audioContext.state);
                     return true;
                 } catch (error) {
                     console.log('Audio not available:', error);
@@ -197,19 +210,80 @@
                 }
             }
             
+            async resumeAudioContext() {
+                if (!this.audioContext) {
+                    console.log('No audio context available');
+                    return false;
+                }
+                
+                try {
+                    if (this.audioContext.state === 'suspended') {
+                        await this.audioContext.resume();
+                        console.log('Audio context resumed, new state:', this.audioContext.state);
+                    }
+                    
+                    // Ensure we have a valid audio context
+                    if (this.audioContext.state === 'running') {
+                        return true;
+                    } else {
+                        console.log('Audio context state:', this.audioContext.state);
+                        return false;
+                    }
+                } catch (error) {
+                    console.log('Failed to resume audio context:', error);
+                    return false;
+                }
+            }
+            
             createCyberpunkPatterns() {
-                // Inspired by Orbital, Underworld, and 90s electronic music
+                // Authentic patterns inspired by actual Hackers soundtrack tracks
                 this.patterns = {
-                    bass: [36, 0, 36, 0, 36, 0, 36, 0, 36, 0, 36, 0, 36, 0, 36, 0], // Deep bass line
-                    lead: [60, 0, 64, 0, 67, 0, 72, 0, 0, 0, 0, 0, 60, 64, 67, 72], // Melodic lead
-                    pad: [48, 51, 55, 58, 60, 63, 67, 70, 72, 75, 79, 82, 84, 87, 91, 94], // Ambient pad
-                    drums: [38, 0, 42, 0, 38, 42, 0, 42, 38, 0, 42, 0, 38, 42, 38, 42], // Electronic drums
-                    arp: [72, 79, 84, 91, 84, 79, 72, 67, 72, 79, 84, 91, 96, 91, 84, 79] // Arpeggiated sequence
+                    // Orbital "Halcyon" inspired bass line
+                    bass: [36, 0, 36, 0, 36, 0, 36, 0, 36, 0, 36, 0, 36, 0, 36, 0],
+                    
+                    // Underworld "Born Slippy" inspired lead melody
+                    lead: [60, 0, 64, 0, 67, 0, 72, 0, 75, 0, 72, 0, 67, 0, 64, 0],
+                    
+                    // Orbital "Halcyon" inspired pad chords
+                    pad: [48, 0, 0, 0, 55, 0, 0, 0, 60, 0, 0, 0, 67, 0, 0, 0],
+                    
+                    // Prodigy "Voodoo People" inspired drums
+                    drums: [38, 0, 42, 0, 38, 0, 42, 0, 38, 0, 42, 0, 38, 0, 42, 0],
+                    
+                    // Orbital "Halcyon" inspired arpeggio (the iconic sequence)
+                    arp: [72, 76, 79, 84, 79, 76, 72, 67, 72, 76, 79, 84, 79, 76, 72, 67]
+                };
+                
+                // Add more authentic tracks inspired by the soundtrack
+                this.createAdditionalTracks();
+            }
+            
+            createAdditionalTracks() {
+                // Additional patterns for more variety
+                this.additionalPatterns = {
+                    // Stereo MCs "Connected" inspired bass
+                    bass2: [36, 36, 0, 36, 36, 36, 0, 36, 36, 36, 0, 36, 36, 36, 0, 36],
+                    
+                    // Leftfield "Open Up" inspired lead
+                    lead2: [60, 64, 67, 0, 72, 0, 67, 64, 60, 0, 64, 67, 72, 0, 67, 64],
+                    
+                    // The Chemical Brothers inspired pad
+                    pad2: [48, 51, 55, 58, 60, 63, 67, 70, 72, 75, 79, 82, 84, 87, 91, 94],
+                    
+                    // Alternating drum patterns
+                    drums2: [38, 42, 0, 42, 38, 0, 42, 0, 38, 42, 38, 42, 0, 42, 38, 0]
                 };
             }
             
-            play() {
+            async play() {
                 if (!this.audioContext || this.isPlaying) return;
+                
+                // Resume audio context if suspended (required by modern browsers)
+                const resumed = await this.resumeAudioContext();
+                if (!resumed) {
+                    console.log('Cannot play audio - context not resumed');
+                    return;
+                }
                 
                 this.isPlaying = true;
                 this.currentBeat = 0;
@@ -229,10 +303,20 @@
                 
                 const beatDuration = (60 / this.tempo) * 4; // 16th note duration
                 
+                // Switch pattern sets every 32 beats (2 bars)
+                if (this.currentBeat % 32 === 0 && this.currentBeat > 0) {
+                    this.patternSet = (this.patternSet + 1) % 2;
+                    console.log(`Switching to pattern set ${this.patternSet}`);
+                }
+                
+                // Get current pattern set
+                const currentPatterns = this.patternSet === 0 ? this.patterns : this.additionalPatterns;
+                
                 // Play all patterns
-                Object.keys(this.patterns).forEach((patternName, index) => {
-                    const note = this.patterns[patternName][this.currentBeat % this.patterns[patternName].length];
+                Object.keys(currentPatterns).forEach((patternName, index) => {
+                    const note = currentPatterns[patternName][this.currentBeat % currentPatterns[patternName].length];
                     if (note > 0) {
+                        console.log(`Playing note ${note} for ${patternName} (set ${this.patternSet})`);
                         this.playNote(note, patternName, index * 0.1);
                     }
                 });
@@ -242,7 +326,10 @@
             }
             
             playNote(midiNote, instrument, delay = 0) {
-                if (!this.audioContext) return;
+                if (!this.audioContext || this.audioContext.state !== 'running') {
+                    console.log('Audio context not ready for playback');
+                    return;
+                }
                 
                 const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
                 const oscillator = this.audioContext.createOscillator();
@@ -258,38 +345,38 @@
                 switch (instrument) {
                     case 'bass':
                         waveform = 'sawtooth';
-                        attack = 0.1;
-                        decay = 0.2;
-                        sustain = 0.8;
-                        release = 0.3;
-                        break;
-                    case 'lead':
-                        waveform = 'square';
                         attack = 0.05;
                         decay = 0.1;
                         sustain = 0.9;
-                        release = 0.2;
+                        release = 0.15;
+                        break;
+                    case 'lead':
+                        waveform = 'square';
+                        attack = 0.02;
+                        decay = 0.05;
+                        sustain = 0.95;
+                        release = 0.1;
                         break;
                     case 'pad':
                         waveform = 'triangle';
-                        attack = 0.5;
-                        decay = 0.3;
-                        sustain = 0.8;
-                        release = 1.0;
+                        attack = 0.2;
+                        decay = 0.2;
+                        sustain = 0.9;
+                        release = 0.5;
                         break;
                     case 'drums':
                         waveform = 'square';
                         attack = 0.001;
-                        decay = 0.1;
+                        decay = 0.05;
                         sustain = 0.0;
-                        release = 0.1;
+                        release = 0.05;
                         break;
                     case 'arp':
                         waveform = 'sine';
-                        attack = 0.01;
-                        decay = 0.1;
-                        sustain = 0.7;
-                        release = 0.2;
+                        attack = 0.005;
+                        decay = 0.05;
+                        sustain = 0.8;
+                        release = 0.1;
                         break;
                 }
                 
@@ -298,16 +385,26 @@
                 
                 // ADSR envelope
                 const now = this.audioContext.currentTime + delay;
+                const totalDuration = attack + decay + release;
+                
                 gainNode.gain.setValueAtTime(0, now);
                 gainNode.gain.linearRampToValueAtTime(sustain, now + attack);
                 gainNode.gain.linearRampToValueAtTime(sustain * 0.7, now + attack + decay);
-                gainNode.gain.linearRampToValueAtTime(0, now + attack + decay + release);
+                gainNode.gain.linearRampToValueAtTime(0, now + totalDuration);
                 
                 oscillator.connect(gainNode);
                 gainNode.connect(this.masterGain);
                 
                 oscillator.start(now);
-                oscillator.stop(now + attack + decay + release);
+                oscillator.stop(now + totalDuration);
+                
+                // Clean up oscillator after it finishes
+                oscillator.onended = () => {
+                    const index = this.oscillators.indexOf(oscillator);
+                    if (index > -1) {
+                        this.oscillators.splice(index, 1);
+                    }
+                };
                 
                 this.oscillators.push(oscillator);
             }
@@ -322,6 +419,7 @@
 
         class HackersTribute {
             constructor() {
+                console.log('Initializing HackersTribute...');
                 this.canvas = document.getElementById('canvas');
                 this.ctx = this.canvas.getContext('2d');
                 this.time = 0;
@@ -330,6 +428,8 @@
                 this.plasma = [];
                 this.matrix = [];
                 this.midi = new CyberpunkMIDI();
+                
+                console.log('Canvas:', this.canvas, 'Context:', this.ctx);
                 
                 this.init();
                 this.createParticles();
@@ -340,6 +440,7 @@
                 
                 // Update date
                 document.getElementById('currentDate').textContent = new Date().toLocaleString();
+                console.log('HackersTribute initialized successfully');
             }
             
             init() {
@@ -351,33 +452,74 @@
                 this.canvas.addEventListener('mousemove', (e) => this.mouseMove(e));
                 
                 // Initialize MIDI
-                this.midi.init();
+                this.midi.init().then(success => {
+                    if (!success) {
+                        document.getElementById('audioStatus').textContent = 'AUDIO UNAVAILABLE';
+                    }
+                });
+                
+                // Add global click handler to enable audio
+                document.addEventListener('click', async () => {
+                    if (this.midi.audioContext && this.midi.audioContext.state === 'suspended') {
+                        await this.midi.resumeAudioContext();
+                        if (this.midi.audioContext.state === 'running') {
+                            document.getElementById('audioStatus').textContent = 'AUDIO ENABLED';
+                        }
+                    }
+                }, { once: false });
             }
             
             setupAudioControls() {
                 const playBtn = document.getElementById('playBtn');
                 const stopBtn = document.getElementById('stopBtn');
                 const volBtn = document.getElementById('volBtn');
+                const patternBtn = document.getElementById('patternBtn');
+                const audioStatus = document.getElementById('audioStatus');
                 
-                playBtn.addEventListener('click', () => {
+                console.log('Setting up audio controls:', { playBtn, stopBtn, volBtn, audioStatus });
+                
+                if (!playBtn || !stopBtn || !volBtn || !patternBtn) {
+                    console.error('Audio control buttons not found!');
+                    return;
+                }
+                
+                playBtn.addEventListener('click', async (e) => {
+                    console.log('Play button clicked!', e);
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
                     if (this.midi.isPlaying) {
                         this.midi.stop();
                         playBtn.textContent = 'PLAY';
                         playBtn.classList.remove('active');
+                        audioStatus.textContent = 'STOPPED';
                     } else {
-                        this.midi.play();
-                        playBtn.textContent = 'PAUSE';
-                        playBtn.classList.add('active');
+                        audioStatus.textContent = 'INITIALIZING...';
+                        await this.midi.play();
+                        if (this.midi.isPlaying) {
+                            playBtn.textContent = 'PAUSE';
+                            playBtn.classList.add('active');
+                            audioStatus.textContent = 'PLAYING';
+                        } else {
+                            audioStatus.textContent = 'ERROR - CLICK TO ENABLE';
+                        }
                     }
                 });
                 
-                stopBtn.addEventListener('click', () => {
+                stopBtn.addEventListener('click', (e) => {
+                    console.log('Stop button clicked!', e);
+                    e.preventDefault();
+                    e.stopPropagation();
                     this.midi.stop();
                     playBtn.textContent = 'PLAY';
                     playBtn.classList.remove('active');
+                    audioStatus.textContent = 'STOPPED';
                 });
                 
-                volBtn.addEventListener('click', () => {
+                volBtn.addEventListener('click', (e) => {
+                    console.log('Volume button clicked!', e);
+                    e.preventDefault();
+                    e.stopPropagation();
                     const volumes = [0, 0.25, 0.5, 0.75, 1.0];
                     const currentVol = this.midi.volume;
                     const currentIndex = volumes.indexOf(currentVol);
@@ -387,11 +529,21 @@
                     this.midi.setVolume(newVol);
                     volBtn.textContent = `VOL: ${Math.round(newVol * 100)}%`;
                 });
+                
+                patternBtn.addEventListener('click', (e) => {
+                    console.log('Pattern button clicked!', e);
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.midi.patternSet = (this.midi.patternSet + 1) % 2;
+                    patternBtn.textContent = `PATTERN: ${this.midi.patternSet + 1}`;
+                    console.log(`Manually switched to pattern set ${this.midi.patternSet}`);
+                });
             }
             
             resize() {
                 this.canvas.width = window.innerWidth;
                 this.canvas.height = window.innerHeight;
+                console.log('Canvas resized to:', this.canvas.width, 'x', this.canvas.height);
             }
             
             createParticles() {
@@ -496,7 +648,7 @@
                         data[index] = Math.min(255, r);
                         data[index + 1] = Math.min(255, g);
                         data[index + 2] = Math.min(255, b);
-                        data[index + 3] = 255;
+                        data[index + 3] = 200; // More visible plasma
                     }
                 }
                 
@@ -510,8 +662,10 @@
                 
                 // Pulsing effect synchronized with beat
                 const pulseIntensity = Math.sin(beatSync * Math.PI / 8) * 0.5 + 0.5;
-                this.ctx.strokeStyle = `rgba(0, 255, 0, ${0.8 + pulseIntensity * 0.2})`;
-                this.ctx.lineWidth = 1 + pulseIntensity;
+                this.ctx.strokeStyle = `rgba(0, 255, 0, ${1.0})`;
+                this.ctx.lineWidth = 3 + pulseIntensity;
+                this.ctx.shadowColor = '#00ff00';
+                this.ctx.shadowBlur = 10;
                 this.ctx.beginPath();
                 
                 const vertices = this.wireframe.vertices.map(vertex => {
@@ -537,6 +691,7 @@
                 });
                 
                 this.ctx.stroke();
+                this.ctx.shadowBlur = 0; // Reset shadow
             }
             
             drawParticles() {
@@ -614,11 +769,15 @@
                 this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                 
                 // Draw effects in layers with music sync
-                this.drawPlasma(musicIntensity);
-                this.drawWireframe(beatSync);
-                this.drawTunnel(musicIntensity);
-                this.drawParticles();
-                this.drawMatrix();
+                try {
+                    this.drawPlasma(musicIntensity);
+                    this.drawWireframe(beatSync);
+                    this.drawTunnel(musicIntensity);
+                    this.drawParticles();
+                    this.drawMatrix();
+                } catch (error) {
+                    console.error('Error in animation loop:', error);
+                }
                 
                 // Enhanced glitch effects when music is playing
                 if (this.midi.isPlaying && Math.random() < 0.05) {
@@ -655,7 +814,12 @@
         
         // Initialize the tribute when page loads
         window.addEventListener('load', () => {
-            new HackersTribute();
+            console.log('Window loaded, initializing HackersTribute...');
+            try {
+                new HackersTribute();
+            } catch (error) {
+                console.error('Error initializing HackersTribute:', error);
+            }
         });
         
         // Easter egg: Konami code
