@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HACK THE PLANET - 30th Anniversary Tribute</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            cursor: none;
+        }
+        
+        #canvas {
+            display: block;
+            background: #000;
+        }
+        
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .scanline {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00ff00, transparent);
+            animation: scan 3s linear infinite;
+        }
+        
+        @keyframes scan {
+            0% { top: -2px; opacity: 0; }
+            50% { opacity: 1; }
+            100% { top: 100vh; opacity: 0; }
+        }
+        
+        .glitch {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            color: #00ff00;
+            text-shadow: 
+                2px 0 #ff0000,
+                -2px 0 #0000ff,
+                0 2px #ff0000,
+                0 -2px #0000ff;
+            animation: glitch 0.3s infinite;
+            white-space: nowrap;
+        }
+        
+        @keyframes glitch {
+            0%, 100% { transform: translate(-50%, -50%); }
+            20% { transform: translate(-48%, -52%); }
+            40% { transform: translate(-52%, -48%); }
+            60% { transform: translate(-50%, -50%); }
+            80% { transform: translate(-49%, -51%); }
+        }
+        
+        .matrix-text {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ff00;
+            font-size: 0.8rem;
+            line-height: 1.2;
+            opacity: 0.8;
+        }
+        
+        .terminal {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #00ff00;
+            font-size: 0.7rem;
+            font-family: 'Courier New', monospace;
+            opacity: 0.9;
+        }
+        
+        .cursor {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div class="overlay">
+        <div class="scanline"></div>
+        
+        <div class="glitch" id="title">
+            HACK THE PLANET
+        </div>
+        
+        <div class="matrix-text" id="matrixText">
+            <div>INITIALIZING NEURAL NETWORK...</div>
+            <div>ACCESSING MAINFRAME...</div>
+            <div>BREACHING FIREWALL...</div>
+            <div>DOWNLOADING DATA...</div>
+        </div>
+        
+        <div class="terminal" id="terminal">
+            <div>root@hackers:~$ whoami</div>
+            <div>zero_cool</div>
+            <div>root@hackers:~$ date</div>
+            <div id="currentDate"></div>
+            <div>root@hackers:~$ <span class="cursor">█</span></div>
+        </div>
+    </div>
+
+    <script>
+        class HackersTribute {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.time = 0;
+                this.particles = [];
+                this.wireframe = [];
+                this.plasma = [];
+                this.matrix = [];
+                
+                this.init();
+                this.createParticles();
+                this.createWireframe();
+                this.createMatrix();
+                this.animate();
+                
+                // Update date
+                document.getElementById('currentDate').textContent = new Date().toLocaleString();
+            }
+            
+            init() {
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                
+                // Add some interactive elements
+                this.canvas.addEventListener('click', () => this.explosion());
+                this.canvas.addEventListener('mousemove', (e) => this.mouseMove(e));
+            }
+            
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+            
+            createParticles() {
+                for (let i = 0; i < 200; i++) {
+                    this.particles.push({
+                        x: Math.random() * this.canvas.width,
+                        y: Math.random() * this.canvas.height,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        life: Math.random() * 100,
+                        maxLife: 100,
+                        size: Math.random() * 3 + 1
+                    });
+                }
+            }
+            
+            createWireframe() {
+                // Create a 3D wireframe cube
+                const size = 100;
+                const vertices = [
+                    [-size, -size, -size], [size, -size, -size], [size, size, -size], [-size, size, -size],
+                    [-size, -size, size], [size, -size, size], [size, size, size], [-size, size, size]
+                ];
+                
+                const edges = [
+                    [0,1], [1,2], [2,3], [3,0], // front face
+                    [4,5], [5,6], [6,7], [7,4], // back face
+                    [0,4], [1,5], [2,6], [3,7]  // connecting edges
+                ];
+                
+                this.wireframe = { vertices, edges };
+            }
+            
+            createMatrix() {
+                const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+                for (let i = 0; i < 50; i++) {
+                    this.matrix.push({
+                        x: Math.random() * this.canvas.width,
+                        y: Math.random() * this.canvas.height,
+                        char: chars[Math.floor(Math.random() * chars.length)],
+                        speed: Math.random() * 2 + 1,
+                        life: Math.random() * 100
+                    });
+                }
+            }
+            
+            mouseMove(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                // Create particles at mouse position
+                for (let i = 0; i < 5; i++) {
+                    this.particles.push({
+                        x: mouseX + (Math.random() - 0.5) * 20,
+                        y: mouseY + (Math.random() - 0.5) * 20,
+                        vx: (Math.random() - 0.5) * 4,
+                        vy: (Math.random() - 0.5) * 4,
+                        life: 60,
+                        maxLife: 60,
+                        size: Math.random() * 2 + 1
+                    });
+                }
+            }
+            
+            explosion() {
+                // Create explosion effect
+                for (let i = 0; i < 100; i++) {
+                    const angle = (Math.PI * 2 * i) / 100;
+                    this.particles.push({
+                        x: this.canvas.width / 2,
+                        y: this.canvas.height / 2,
+                        vx: Math.cos(angle) * 8,
+                        vy: Math.sin(angle) * 8,
+                        life: 80,
+                        maxLife: 80,
+                        size: Math.random() * 4 + 2
+                    });
+                }
+            }
+            
+            drawPlasma() {
+                const imageData = this.ctx.createImageData(this.canvas.width, this.canvas.height);
+                const data = imageData.data;
+                
+                for (let y = 0; y < this.canvas.height; y += 2) {
+                    for (let x = 0; x < this.canvas.width; x += 2) {
+                        const index = (y * this.canvas.width + x) * 4;
+                        
+                        const value1 = Math.sin((x * 0.01) + this.time * 0.01);
+                        const value2 = Math.sin((y * 0.01) + this.time * 0.01);
+                        const value3 = Math.sin(((x + y) * 0.01) + this.time * 0.01);
+                        const value4 = Math.sin((Math.sqrt(x * x + y * y) * 0.01) + this.time * 0.01);
+                        
+                        const value = (value1 + value2 + value3 + value4) / 4;
+                        
+                        const r = Math.floor((Math.sin(value * Math.PI) + 1) * 127);
+                        const g = Math.floor((Math.sin(value * Math.PI + 2) + 1) * 127);
+                        const b = Math.floor((Math.sin(value * Math.PI + 4) + 1) * 127);
+                        
+                        data[index] = r;
+                        data[index + 1] = g;
+                        data[index + 2] = b;
+                        data[index + 3] = 255;
+                    }
+                }
+                
+                this.ctx.putImageData(imageData, 0, 0);
+            }
+            
+            drawWireframe() {
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                const rotation = this.time * 0.01;
+                
+                this.ctx.strokeStyle = '#00ff00';
+                this.ctx.lineWidth = 1;
+                this.ctx.beginPath();
+                
+                const vertices = this.wireframe.vertices.map(vertex => {
+                    const [x, y, z] = vertex;
+                    const rotatedX = x * Math.cos(rotation) - z * Math.sin(rotation);
+                    const rotatedZ = x * Math.sin(rotation) + z * Math.cos(rotation);
+                    const rotatedY = y * Math.cos(rotation * 0.7) - rotatedZ * Math.sin(rotation * 0.7);
+                    
+                    const scale = 300 / (300 + rotatedZ);
+                    const screenX = centerX + rotatedX * scale;
+                    const screenY = centerY + rotatedY * scale;
+                    
+                    return [screenX, screenY];
+                });
+                
+                this.wireframe.edges.forEach(edge => {
+                    const [start, end] = edge;
+                    const [x1, y1] = vertices[start];
+                    const [x2, y2] = vertices[end];
+                    
+                    this.ctx.moveTo(x1, y1);
+                    this.ctx.lineTo(x2, y2);
+                });
+                
+                this.ctx.stroke();
+            }
+            
+            drawParticles() {
+                this.particles.forEach((particle, index) => {
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    particle.life--;
+                    
+                    if (particle.life <= 0 || particle.x < 0 || particle.x > this.canvas.width || 
+                        particle.y < 0 || particle.y > this.canvas.height) {
+                        this.particles.splice(index, 1);
+                        return;
+                    }
+                    
+                    const alpha = particle.life / particle.maxLife;
+                    this.ctx.fillStyle = `rgba(0, 255, 0, ${alpha})`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                });
+            }
+            
+            drawMatrix() {
+                this.ctx.font = '12px Courier New';
+                this.ctx.fillStyle = '#00ff00';
+                
+                this.matrix.forEach(char => {
+                    char.y += char.speed;
+                    char.life--;
+                    
+                    if (char.y > this.canvas.height || char.life <= 0) {
+                        char.y = -20;
+                        char.x = Math.random() * this.canvas.width;
+                        char.life = Math.random() * 100 + 50;
+                    }
+                    
+                    const alpha = char.life / 150;
+                    this.ctx.globalAlpha = alpha;
+                    this.ctx.fillText(char.char, char.x, char.y);
+                });
+                
+                this.ctx.globalAlpha = 1;
+            }
+            
+            drawTunnel() {
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                const maxRadius = Math.max(this.canvas.width, this.canvas.height) / 2;
+                
+                for (let i = 0; i < 50; i++) {
+                    const radius = (i / 50) * maxRadius;
+                    const angle = (this.time * 0.02) + (i * 0.1);
+                    
+                    const x = centerX + Math.cos(angle) * radius;
+                    const y = centerY + Math.sin(angle) * radius;
+                    
+                    this.ctx.strokeStyle = `rgba(0, 255, 0, ${1 - i / 50})`;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.arc(x, y, 2, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                }
+            }
+            
+            animate() {
+                this.time++;
+                
+                // Clear canvas with fade effect
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw effects in layers
+                this.drawPlasma();
+                this.drawWireframe();
+                this.drawTunnel();
+                this.drawParticles();
+                this.drawMatrix();
+                
+                // Add some glitch effects occasionally
+                if (Math.random() < 0.02) {
+                    this.glitchEffect();
+                }
+                
+                requestAnimationFrame(() => this.animate());
+            }
+            
+            glitchEffect() {
+                const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+                const data = imageData.data;
+                
+                // Randomly shift some pixel rows
+                for (let i = 0; i < 10; i++) {
+                    const row = Math.floor(Math.random() * this.canvas.height);
+                    const shift = Math.floor((Math.random() - 0.5) * 50);
+                    
+                    for (let x = 0; x < this.canvas.width; x++) {
+                        const sourceIndex = (row * this.canvas.width + x) * 4;
+                        const targetIndex = (row * this.canvas.width + ((x + shift + this.canvas.width) % this.canvas.width)) * 4;
+                        
+                        data[targetIndex] = data[sourceIndex];
+                        data[targetIndex + 1] = data[sourceIndex + 1];
+                        data[targetIndex + 2] = data[sourceIndex + 2];
+                    }
+                }
+                
+                this.ctx.putImageData(imageData, 0, 0);
+            }
+        }
+        
+        // Initialize the tribute when page loads
+        window.addEventListener('load', () => {
+            new HackersTribute();
+        });
+        
+        // Easter egg: Konami code
+        let konamiCode = [];
+        const konamiSequence = [38, 38, 40, 40, 37, 39, 37, 39, 66, 65]; // ↑↑↓↓←→←→BA
+        
+        document.addEventListener('keydown', (e) => {
+            konamiCode.push(e.keyCode);
+            if (konamiCode.length > konamiSequence.length) {
+                konamiCode.shift();
+            }
+            
+            if (konamiCode.join(',') === konamiSequence.join(',')) {
+                alert('ACCESS GRANTED\n\n"Mess with the best, die like the rest!"\n\n- Zero Cool');
+                konamiCode = [];
+            }
+        });
+    </script>
+</body>
+</html>

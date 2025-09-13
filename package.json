@@ -1,0 +1,30 @@
+{
+  "name": "hacktheplanet",
+  "version": "1.0.0",
+  "description": "30th Anniversary Tribute to the 1995 film Hackers - A modern demoscene executable",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "serve": "python3 -m http.server 8000"
+  },
+  "keywords": [
+    "hackers",
+    "demoscene",
+    "cyberpunk",
+    "90s",
+    "tribute",
+    "generative",
+    "graphics",
+    "floppy-disk"
+  ],
+  "author": "Zero Cool",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/hacktheplanet.git"
+  },
+  "files": [
+    "index.html",
+    "README.md"
+  ]
+}
